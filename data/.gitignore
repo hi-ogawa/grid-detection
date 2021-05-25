@@ -1,0 +1,5 @@
+/tmp
+/cifar100
+/stl10
+/synthesize/*
+!/synthesize/.keep
