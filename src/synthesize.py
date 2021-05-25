@@ -6,6 +6,7 @@ import torchvision.transforms as VT
 import torchvision.transforms.functional as VF
 from tqdm import tqdm
 import random
+import os
 
 
 def loop_sample(data):
@@ -32,10 +33,10 @@ def synthesize(generator, nrows=8, ncols=8, p=0.3):
     return x
 
 
-def random_perspective_with_background(t, t_back, size):
+def random_perspective_with_background(t, t_back, size, distortion):
     t = VF.resize(t, size)
     t_back = VF.resize(t_back, size)
-    startpoints, endpoints = VT.RandomPerspective.get_params(*size, 0.5)
+    startpoints, endpoints = VT.RandomPerspective.get_params(*size, distortion)
     dummy = torch.rand(3)
     s = VF.perspective(t, startpoints, endpoints, fill=list(dummy))
     mask = (s[0, :, :] == dummy[0]).broadcast_to(t.size())
@@ -43,7 +44,8 @@ def random_perspective_with_background(t, t_back, size):
     return s, endpoints
 
 
-def main(count, out_dir, width=300, height=300, grid_min=8, grid_max=8):
+def main(count, out_dir, width, height, grid_min, grid_max, distortion):
+    os.makedirs(out_dir, exist_ok=True)
     print(":: Loading dataset...")
     dataset_cifar100 = torchvision.datasets.CIFAR100('data/cifar100')
     dataset_stl10 = torchvision.datasets.STL10('data/stl10')
@@ -56,7 +58,7 @@ def main(count, out_dir, width=300, height=300, grid_min=8, grid_max=8):
         ncols = random.randrange(grid_min, grid_max + 1)
         x = synthesize(gen1, nrows=nrows, ncols=ncols)
         y = next(gen2)
-        z, label = random_perspective_with_background(x, y, [width, height])
+        z, label = random_perspective_with_background(x, y, [width, height], distortion)
         image = VF.to_pil_image(z)
         image.save(f"{out_dir}/{i:05d}.png")
         labels.append(label)
@@ -68,8 +70,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("count", type=int)
     parser.add_argument("--out-dir", type=str, required=True)
-    parser.add_argument("--width", type=int, default=300)
-    parser.add_argument("--height", type=int, default=300)
+    parser.add_argument("--width", type=int, default=224)
+    parser.add_argument("--height", type=int, default=224)
     parser.add_argument("--grid-min", type=int, default=8)
     parser.add_argument("--grid-max", type=int, default=8)
+    parser.add_argument("--distortion", type=float, default=0.5)
     main(**parser.parse_args().__dict__)
